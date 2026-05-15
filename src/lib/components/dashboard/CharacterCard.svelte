@@ -92,7 +92,7 @@
 
   
   function formatItemLevel(itemLevel: number): string {
-    return Math.floor(itemLevel).toString();
+    return itemLevel.toFixed(2);
   }
 
   function getClassIconUrl(iconId: string): string {

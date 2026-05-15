@@ -52,7 +52,7 @@ impl CharacterRepository {
                     combat_power, display_order, earns_gold, hide_from_dashboard
              FROM conf_character 
              WHERE roster_id = ?1
-             ORDER BY display_order"
+             ORDER BY CAST(display_order AS INTEGER)"
         )?;
         
         let character_iter = stmt.query_map([roster_id], |row| {
@@ -117,7 +117,7 @@ impl CharacterRepository {
                     c.item_level, c.combat_power, c.roster_name, 
                     c.display_order, c.earns_gold, c.hide_from_dashboard
              FROM conf_character c
-             ORDER BY c.display_order, c.char_name"
+             ORDER BY CAST(c.display_order AS INTEGER), c.char_name"
         )?;
         
         let character_iter = stmt.query_map([], |row| {
@@ -187,7 +187,7 @@ impl CharacterRepository {
             "SELECT char_id, char_name, item_level, combat_power, class_id
              FROM conf_character 
              WHERE roster_id = ?1 
-             ORDER BY display_order, char_name"
+             ORDER BY CAST(display_order AS INTEGER), char_name"
         )?;
         
         let character_iter = stmt.query_map([roster_id], |row| {
