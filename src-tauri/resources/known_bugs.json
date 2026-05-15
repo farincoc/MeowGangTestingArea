@@ -1,0 +1,19 @@
+{
+  "bugs": [
+
+    {
+      "severity": "Critical",
+      "description": "Auto-start options aren't working"
+    },
+
+    {
+      "severity": "Low Priority",
+      "description": "App may show 'Update available' notification before the latest version is actually available for download. This is due to the update check running before the new release assets are fully propagated on GitHub. The workaround is to simply ignore the notification and check for updates again after a few minutes, at which point the latest version should be correctly detected and available for download."
+    },
+
+    {
+      "severity": "Low Priority", 
+      "description": "Raid difficulty settings not always saving correctly > workaround: change difficulty per gate in child-rows if master-row shows \"mixed\" state unintentionally"
+    }
+  ]
+}
