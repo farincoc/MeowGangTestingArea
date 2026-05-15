@@ -1535,7 +1535,8 @@
 
   .raid-matrix {
     width: 100%;
-    border-collapse: collapse;
+    border-collapse: separate;
+    border-spacing: 0;
     font-size: 14px;
     min-width: 800px;
   }
@@ -1547,6 +1548,13 @@
     border-bottom: 2px solid var(--md-sys-color-outline);
     font-weight: 600;
     color: var(--md-sys-color-on-surface-variant);
+    position: sticky;
+    top: 0;
+    z-index: 20;
+  }
+
+  .header-row th.first-col {
+    z-index: 30;
   }
 
   .char-header {

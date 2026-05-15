@@ -623,9 +623,10 @@
 
   .tracking-matrix {
     width: 100%;
-    border-collapse: collapse;
+    border-collapse: separate;
+    border-spacing: 0;
     font-size: 14px;
-    min-width: 800px; /* Ensure minimum width for horizontal scrolling */
+    min-width: 800px;
   }
 
   .header-row th {

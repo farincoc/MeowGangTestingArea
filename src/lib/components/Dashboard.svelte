@@ -415,7 +415,9 @@
     </div>
 
     <!-- Header Stats -->
+    {#if totalRaidsPossible > 0 || totalDailiesPossible > 0 || totalWeekliesPossible > 0 || visibleCharacters.some(c => c.earns_gold)}
     <div class="header-stats">
+      {#if totalRaidsPossible > 0}
       <div class="stat-card">
         <div class="stat-icon">
           <img src="/images/kazeros-raid.webp" alt="Raids" />
@@ -425,6 +427,8 @@
           <div class="stat-label">Raids</div>
         </div>
       </div>
+      {/if}
+      {#if totalDailiesPossible > 0}
       <div class="stat-card">
         <div class="stat-icon">
           <img src="/images/icons8-last-24-hours-80.png" alt="Dailies" />
@@ -434,6 +438,8 @@
           <div class="stat-label">Dailies</div>
         </div>
       </div>
+      {/if}
+      {#if totalWeekliesPossible > 0}
       <div class="stat-card">
         <div class="stat-icon">
           <img src="images/calendar_7743808.png" alt="Weeklies" />
@@ -443,6 +449,8 @@
           <div class="stat-label">Weeklies</div>
         </div>
       </div>
+      {/if}
+      {#if visibleCharacters.some(c => c.earns_gold)}
       <div class="stat-card">
         <div class="stat-icon">
           <img src="/images/gold.png" alt="Gold Earners" />
@@ -452,7 +460,9 @@
           <div class="stat-label">Gold Earners</div>
         </div>
       </div>
+      {/if}
     </div>
+    {/if}
 
     <!-- Character Cards Grid -->
     <div class="characters-grid">
