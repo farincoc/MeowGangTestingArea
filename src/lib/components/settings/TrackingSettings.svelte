@@ -157,19 +157,19 @@
         currentValue: null
       });
       
-      // Update local data with the confirmed new state
+      // Update local data and force reactivity
       const updateTaskState = (tasks: any[]) => {
         for (const task of tasks) {
-          const state = task.character_states.find((s: any) => s.char_id === charId);
-          if (state) {
-            state.tracked = newState;
-          }
+          task.character_states = task.character_states.map((s: any) =>
+            s.char_id === charId ? { ...s, tracked: newState } : { ...s }
+          );
         }
       };
       
       updateTaskState(matrixData.daily_tasks);
       updateTaskState(matrixData.weekly_tasks);
       updateTaskState(matrixData.roster_tasks);
+      matrixData = { ...matrixData };
       
     } catch (err) {
       console.error('Failed to toggle task:', err);
@@ -185,13 +185,14 @@
         currentValue: null
       });
       
-      // Update local data with the confirmed new state
-      for (const raid of matrixData.raids) {
-        const state = raid.character_states.find((s: any) => s.char_id === charId);
-        if (state) {
-          state.tracked = newState;
-        }
-      }
+      // Update local data and force reactivity
+      matrixData.raids = matrixData.raids.map((raid: any) => ({
+        ...raid,
+        character_states: raid.character_states.map((s: any) =>
+          s.char_id === charId ? { ...s, tracked: newState } : { ...s }
+        )
+      }));
+      matrixData = { ...matrixData };
       
     } catch (err) {
       console.error('Failed to toggle raid:', err);
@@ -200,7 +201,6 @@
 
   async function toggleRosterTask(taskId: string, newState: boolean) {
     try {
-      // For roster tasks, we need to update all characters
       const characters = matrixData?.characters || [];
       
       for (const char of characters) {
@@ -212,13 +212,14 @@
         });
       }
       
-      // Update local data instead of reloading entire matrix
-      const task = matrixData.roster_tasks.find((t: any) => t.content_id === taskId);
-      if (task) {
-        for (const state of task.character_states) {
-          state.tracked = newState;
+      // Update local data and force reactivity
+      matrixData.roster_tasks = matrixData.roster_tasks.map((t: any) => {
+        if (t.content_id === taskId) {
+          return { ...t, character_states: t.character_states.map((s: any) => ({ ...s, tracked: newState })) };
         }
-      }
+        return { ...t };
+      });
+      matrixData = { ...matrixData };
       
     } catch (err) {
       console.error('Failed to toggle roster task:', err);
@@ -227,7 +228,6 @@
 
   async function toggleAllCharactersForTask(taskId: string, newState: boolean) {
     try {
-      // For individual tasks, update all characters in the roster
       const characters = matrixData?.characters || [];
       
       for (const char of characters) {
@@ -239,21 +239,58 @@
         });
       }
       
-      // Update local data for all task sections
+      // Update local data for all task sections and force reactivity
       const updateTaskState = (tasks: any[]) => {
         const task = tasks.find((t: any) => t.content_id === taskId);
         if (task) {
-          for (const state of task.character_states) {
-            state.tracked = newState;
-          }
+          task.character_states = task.character_states.map((s: any) => ({ ...s, tracked: newState }));
         }
       };
       
       updateTaskState(matrixData.daily_tasks);
       updateTaskState(matrixData.weekly_tasks);
+      matrixData = { ...matrixData };
       
     } catch (err) {
       console.error('Failed to toggle all characters for task:', err);
+    }
+  }
+
+  async function toggleAllCharactersForRaid(raidId: string, newState: boolean) {
+    try {
+      const characters = matrixData?.characters || [];
+      
+      for (const char of characters) {
+        const raid = matrixData.raids.find((r: any) => r.raid_id === raidId);
+        if (raid) {
+          const charState = raid.character_states.find((s: any) => s.char_id === char.char_id);
+          // Only toggle eligible characters (ilvl high enough)
+          if (raid.min_ilvl <= char.item_level) {
+            await invoke('update_tracking_config', {
+              characterId: char.char_id,
+              taskId: raidId,
+              tracked: newState,
+              currentValue: null
+            });
+          }
+        }
+      }
+      
+      // Update local data and force reactivity
+      const raid = matrixData.raids.find((r: any) => r.raid_id === raidId);
+      if (raid) {
+        raid.character_states = raid.character_states.map((s: any, i: number) => {
+          const char = matrixData.characters[i];
+          if (raid.min_ilvl <= char.item_level) {
+            return { ...s, tracked: newState };
+          }
+          return { ...s };
+        });
+      }
+      matrixData = { ...matrixData };
+      
+    } catch (err) {
+      console.error('Failed to toggle all characters for raid:', err);
     }
   }
 
@@ -265,6 +302,17 @@
     };
     
     return checkTaskState(matrixData.daily_tasks) || checkTaskState(matrixData.weekly_tasks);
+  }
+
+  function areAllEligibleCharactersTrackedForRaid(raidId: string): boolean {
+    const raid = matrixData?.raids?.find((r: any) => r.raid_id === raidId);
+    if (!raid || raid.character_states.length === 0) return false;
+    const eligibleStates = raid.character_states.filter((_: any, i: number) => {
+      const char = matrixData.characters[i];
+      return raid.min_ilvl <= char.item_level;
+    });
+    if (eligibleStates.length === 0) return false;
+    return eligibleStates.every((state: any) => state.tracked === true);
   }
 
   // Load data when component mounts or roster changes
@@ -452,6 +500,16 @@
                 <div class="raid-info">
                   <span class="raid-name">{raid.raid_name}</span>
                   <span class="raid-ilvl">iLvl: {raid.min_ilvl}</span>
+                  <button 
+                    class="toggle-all-btn"
+                    on:click={() => {
+                      const currentState = areAllEligibleCharactersTrackedForRaid(raid.raid_id);
+                      toggleAllCharactersForRaid(raid.raid_id, !currentState);
+                    }}
+                    title="Toggle all characters"
+                  >
+                    {areAllEligibleCharactersTrackedForRaid(raid.raid_id) ? '☑' : '☐'}
+                  </button>
                 </div>
               </td>
               {#each matrixData.characters as char}
@@ -577,6 +635,13 @@
     border-bottom: 2px solid var(--md-sys-color-outline);
     font-weight: 600;
     color: var(--md-sys-color-on-surface-variant);
+    position: sticky;
+    top: 0;
+    z-index: 20;
+  }
+
+  .header-row th.first-col {
+    z-index: 30;
   }
 
   .char-header {

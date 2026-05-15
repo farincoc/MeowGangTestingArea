@@ -971,6 +971,7 @@
   .matrix-content {
     flex: 1;
     overflow: auto;
+    position: relative;
   }
 
   .todo-matrix {
@@ -981,6 +982,17 @@
 
   .header-row {
     background: var(--surface-container);
+  }
+
+  .header-row th {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    background: var(--surface-container);
+  }
+
+  .header-row th.first-col {
+    z-index: 30;
   }
 
   .sticky-col {
