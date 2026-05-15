@@ -166,10 +166,11 @@
         };
       });
       
-      // Categorize tasks
-      const dailyTasks = allTasks.filter(task => task.reset_schedule === 'daily' && task.category === 'character');
-      const rosterTasks = allTasks.filter(task => task.category === 'roster');
-      const weeklyTasks = allTasks.filter(task => task.reset_schedule === 'weekly');
+      // Categorize tasks and filter out fully untracked ones
+      const isAnyCharTracked = (task: any) => task.character_states.some((s: any) => s.tracked);
+      const dailyTasks = allTasks.filter(task => task.reset_schedule === 'daily' && task.category === 'character' && isAnyCharTracked(task));
+      const rosterTasks = allTasks.filter(task => task.category === 'roster' && isAnyCharTracked(task));
+      const weeklyTasks = allTasks.filter(task => task.reset_schedule === 'weekly' && isAnyCharTracked(task));
       
       // Transform raids from RAIDS - only show raids that at least one character tracks
       const raidMap = new Map<string, typeof RAIDS[0]>();
@@ -695,6 +696,7 @@
         </thead>
         <tbody>
           <!-- DAILY TASKS -->
+          {#if matrixData.daily_tasks.length > 0}
           <tr class="section-separator">
             <td colspan={matrixData.characters.length + 1}>
               <div class="section-title">DAILY</div>
@@ -745,6 +747,7 @@
               {/each}
             </tr>
           {/each}
+          {/if}
           
           <!-- ROSTER WIDE TASKS -->
           {#if matrixData.roster_tasks.length > 0}
@@ -976,7 +979,8 @@
 
   .todo-matrix {
     width: 100%;
-    border-collapse: collapse;
+    border-collapse: separate;
+    border-spacing: 0;
     background: var(--surface);
   }
 
@@ -996,12 +1000,20 @@
   }
 
   .sticky-col {
+    position: sticky;
+    left: 0;
     background: var(--surface);
   }
 
   .first-col {
     z-index: 11;
     min-width: 200px;
+    background: var(--surface-container);
+  }
+
+  .task-name-cell.sticky-col.first-col {
+    background: var(--surface);
+    z-index: 11;
   }
 
   .char-header {
