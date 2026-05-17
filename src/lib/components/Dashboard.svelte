@@ -303,42 +303,54 @@
     raidLookup[`${raid.id}-${raid.difficulty}`] = raid;
   }
 
-  // Calculate maximum possible gold income based on conf_raid data
   function calculateTotalEstimatedGold(
     characters: Character[],
     raidConfigsByCharacter: Record<string, RaidConfigEntry[]>
   ): number {
     let totalGold = 0;
-    
+
     for (const character of characters) {
       if (!character.earns_gold) continue;
-      
+
       try {
-        const raidConfigs = raidConfigsByCharacter[String(character.char_id)] || [];
+        const charKey = String(character.char_id);
+        const raidConfigs = raidConfigsByCharacter[charKey] || [];
         const goldRaids = raidConfigs.filter(config => config.take_gold === 1);
         const uniqueRaids = new Set<string>();
-        
+
+        // Use completion data already loaded into characterDataMap
+        const completionData = characterDataMap[charKey]?.completionStatus ?? [];
+
         for (const config of goldRaids) {
           const raidKey = `${config.content_id}-${config.difficulty}`;
-          if (!uniqueRaids.has(raidKey)) {
-            uniqueRaids.add(raidKey);
-            
-            const raid = raidLookup[raidKey];
-            if (raid) {
-              const raidGold = raid.gates.reduce((sum: number, gate) => {
-                const gateGold = (gate.tradableGold || 0) + (gate.boundGold || 0);
-                const boxPrice = config.buy_box === 1 ? (gate.boxPrice || 0) : 0;
-                return sum + gateGold - boxPrice;
-              }, 0);
-              totalGold += raidGold;
-            }
+          if (uniqueRaids.has(raidKey)) continue;
+          uniqueRaids.add(raidKey);
+
+          // Mismatch: raid cleared in wrong difficulty → planned gold is lost
+          const plannedDiff = (config.difficulty ?? '').trim().toLowerCase();
+          const clearedEntry = completionData.find(
+            (c: any) => c.content_id === config.content_id && c.is_completed === 1 && c.details
+          );
+          if (clearedEntry) {
+            const actualDiff = (clearedEntry.details as string).trim().toLowerCase();
+            if (actualDiff !== plannedDiff) continue; // skip this raid
+          }
+
+          const raid = raidLookup[raidKey];
+          if (raid) {
+            const raidGold = raid.gates.reduce((sum: number, gate) => {
+              const gateGold = (gate.tradableGold || 0) + (gate.boundGold || 0);
+              const boxPrice = config.buy_box === 1 ? (gate.boxPrice || 0) : 0;
+              return sum + gateGold - boxPrice;
+            }, 0);
+            totalGold += raidGold;
           }
         }
       } catch (error) {
         console.error(`Failed to calculate gold for character ${character.char_id}:`, error);
       }
     }
-    
+
     return totalGold;
   }
 
