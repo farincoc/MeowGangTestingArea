@@ -33,9 +33,12 @@
       ?? RAIDS.find(r => r.id === raidId);
     const total = raidDef?.gates.length ?? 0;
 
-    const gatePattern = new RegExp(`^${raidId}_Gate \\d+$`);
-    const completed = completionStatus.filter(
-      c => c.content_id === raidId && c.is_completed === 1 && gatePattern.test(c.session_id ?? '')
+    // session_id format: "<raidId>_Gate <N>" (both encounter-sync and manual toggle)
+    const completed = completionStatus.filter(c =>
+      c.content_id === raidId &&
+      c.is_completed === 1 &&
+      (c.session_id ?? '').startsWith(raidId + '_') &&
+      (c.session_id ?? '').includes('_Gate ')
     ).length;
 
     return { completed, total };
