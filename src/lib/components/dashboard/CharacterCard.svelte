@@ -490,8 +490,8 @@
     white-space: nowrap;
     flex-shrink: 0;
   }
-  .gate-progress-partial { background: rgba(255, 165, 0, 0.18); color: #ffa500; }
-  .gate-progress-done    { background: rgba(16, 185, 129, 0.18); color: #10b981; }
+  .gate-progress-partial { background: rgba(255, 255, 255, 0.08); color: rgba(255, 255, 255, 0.55); }
+  .gate-progress-done    { background: rgba(255, 255, 255, 0.08); color: rgba(255, 255, 255, 0.55); }
 
   .raid-icon {
     width: 14px;
