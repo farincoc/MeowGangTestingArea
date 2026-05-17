@@ -24,6 +24,8 @@
   let progressPercentage = 0;
   let estimatedGoldDisplay = 0;
 
+  let mismatchGoldLost = 0;
+
   interface CompletionStatusEntry {
     content_id: string;
     is_completed: number;
@@ -308,6 +310,7 @@
     raidConfigsByCharacter: Record<string, RaidConfigEntry[]>
   ): number {
     let totalGold = 0;
+    let lostGold = 0;
 
     for (const character of characters) {
       if (!character.earns_gold) continue;
@@ -317,8 +320,6 @@
         const raidConfigs = raidConfigsByCharacter[charKey] || [];
         const goldRaids = raidConfigs.filter(config => config.take_gold === 1);
         const uniqueRaids = new Set<string>();
-
-        // Use completion data already loaded into characterDataMap
         const completionData = characterDataMap[charKey]?.completionStatus ?? [];
 
         for (const config of goldRaids) {
@@ -326,24 +327,27 @@
           if (uniqueRaids.has(raidKey)) continue;
           uniqueRaids.add(raidKey);
 
-          // Mismatch: raid cleared in wrong difficulty → planned gold is lost
+          const raid = raidLookup[raidKey];
+          if (!raid) continue;
+
+          const raidGold = raid.gates.reduce((sum: number, gate) => {
+            const gateGold = (gate.tradableGold || 0) + (gate.boundGold || 0);
+            const boxPrice = config.buy_box === 1 ? (gate.boxPrice || 0) : 0;
+            return sum + gateGold - boxPrice;
+          }, 0);
+
+          totalGold += raidGold;
+
+          // Detect mismatch: cleared in a different difficulty than planned
           const plannedDiff = (config.difficulty ?? '').trim().toLowerCase();
           const clearedEntry = completionData.find(
             (c: any) => c.content_id === config.content_id && c.is_completed === 1 && c.details
           );
           if (clearedEntry) {
             const actualDiff = (clearedEntry.details as string).trim().toLowerCase();
-            if (actualDiff !== plannedDiff) continue; // skip this raid
-          }
-
-          const raid = raidLookup[raidKey];
-          if (raid) {
-            const raidGold = raid.gates.reduce((sum: number, gate) => {
-              const gateGold = (gate.tradableGold || 0) + (gate.boundGold || 0);
-              const boxPrice = config.buy_box === 1 ? (gate.boxPrice || 0) : 0;
-              return sum + gateGold - boxPrice;
-            }, 0);
-            totalGold += raidGold;
+            if (actualDiff !== plannedDiff) {
+              lostGold += raidGold;
+            }
           }
         }
       } catch (error) {
@@ -351,6 +355,7 @@
       }
     }
 
+    mismatchGoldLost = lostGold;
     return totalGold;
   }
 
@@ -407,13 +412,23 @@
 
         <div class="progress-container-modern">
           <div class="progress-track">
-            <div class="progress-fill-glow" style="width: {progressPercentage}%">
+            <div class="progress-fill-glow" style="width: {Math.min(progressPercentage, 100)}%">
               <div class="shimmer"></div>
             </div>
+            {#if mismatchGoldLost > 0 && estimatedGoldDisplay > 0}
+              <div
+                class="progress-fill-lost"
+                style="left: {Math.min(progressPercentage, 100)}%; width: {Math.min(mismatchGoldLost / estimatedGoldDisplay * 100, 100 - Math.min(progressPercentage, 100))}%"
+              ></div>
+            {/if}
           </div>
           <div class="progress-labels">
             <span class="pct-text">{Math.round(progressPercentage)}% complete</span>
-            <span class="remaining-text">{(estimatedGoldDisplay - (goldStats?.weekly?.totalGold ?? 0)).toLocaleString()} gold remaining</span>
+            {#if mismatchGoldLost > 0}
+              <span class="remaining-text mismatch-loss">⚠ {mismatchGoldLost.toLocaleString()} lost to difficulty mismatch</span>
+            {:else}
+              <span class="remaining-text">{(estimatedGoldDisplay - (goldStats?.weekly?.totalGold ?? 0)).toLocaleString()} gold remaining</span>
+            {/if}
           </div>
         </div>
 
