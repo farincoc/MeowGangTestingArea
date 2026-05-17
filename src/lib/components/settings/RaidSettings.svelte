@@ -242,7 +242,10 @@
             combat_power: char.combat_power || 0,
             class_id: char.class_id,
             earns_gold: char.earns_gold,
-            raid_configs: charRaidConfig.raid_configs,
+            raid_configs: charRaidConfig.raid_configs.map((config: any) => ({
+              ...config,
+              gates: config.gates ? config.gates.map((gate: any) => ({ ...gate })) : []
+            })),
             available_difficulties: availableDifficulties,
             master_difficulty: masterDifficulty,
             is_locked: availableDifficulties.length === 0,
@@ -401,33 +404,42 @@
 
   // Change difficulty for a specific gate
   async function changeGateDifficulty(contentId: string, charId: number, gateName: string, newDifficulty: string) {
-    const char = raidMatrix.flatMap(rg => rg.characters).find(c => c.char_id === charId);
-    if (!char) return;
+    const targetChar = raidMatrix
+      .flatMap(rg => rg.characters)
+      .find(c => c.char_id === charId);
+    if (!targetChar) return;
 
-    const raidConfig = char.raid_configs.find(r => r.content_id === contentId);
-    if (!raidConfig || !raidConfig.gates) return;
+    const targetGate = targetChar.raid_configs
+      .find(r => r.content_id === contentId)?.gates
+      .find(g => g.gate === gateName);
+    if (!targetGate) return;
 
-    const gateConfig = raidConfig.gates.find(g => g.gate === gateName);
-    if (!gateConfig) return;
+    const oldDifficulty = targetGate.difficulty;
 
-    const oldDifficulty = gateConfig.difficulty;
-    gateConfig.difficulty = newDifficulty;
-
-    // Optimistic local update
-    raidMatrix = raidMatrix.map(rg => ({
-      ...rg,
-      characters: rg.characters.map(c => ({
-        ...c,
-        raid_configs: c.raid_configs.map(cfg => ({
-          ...cfg,
-          gates: cfg.gates ? cfg.gates.map(g =>
-            cfg.content_id === contentId && g.gate === gateName
-              ? { ...g, difficulty: newDifficulty }
-              : g
-          ) : []
-        }))
-      }))
-    }));
+    // Immutable update - only touch the specific raid row and gate
+    raidMatrix = raidMatrix.map(rg => {
+      if (rg.content_id !== contentId) return rg;
+      return {
+        ...rg,
+        characters: rg.characters.map(c => {
+          if (c.char_id !== charId) return c;
+          return {
+            ...c,
+            raid_configs: c.raid_configs.map(cfg => {
+              if (cfg.content_id !== contentId) return cfg;
+              return {
+                ...cfg,
+                gates: cfg.gates
+                  ? cfg.gates.map(g =>
+                      g.gate === gateName ? { ...g, difficulty: newDifficulty } : g
+                    )
+                  : []
+              };
+            })
+          };
+        })
+      };
+    });
 
     try {
       await invoke('update_raid_gate_config', {
@@ -436,15 +448,12 @@
         contentId,
         gate: gateName,
         difficulty: newDifficulty,
-        takeGold: gateConfig.take_gold,
-        buyBox: gateConfig.buy_box
+        takeGold: targetGate.take_gold,
+        buyBox: targetGate.buy_box
       });
 
-      // If Solo selected, cascade to all gates
-      if (newDifficulty === 'Solo') {
-        await changeMasterDifficulty(contentId, charId, 'Solo');
-      } else if (oldDifficulty === 'Solo' && newDifficulty !== 'Solo') {
-        // Leaving Solo: cascade new difficulty to all gates
+      // Solo cascades to all gates
+      if (newDifficulty === 'Solo' || (oldDifficulty === 'Solo' && newDifficulty !== 'Solo')) {
         await changeMasterDifficulty(contentId, charId, newDifficulty);
       } else {
         updateMasterDifficulty(charId, contentId);
@@ -454,53 +463,72 @@
       // Revert
       raidMatrix = raidMatrix.map(rg => ({
         ...rg,
-        characters: rg.characters.map(c => ({
-          ...c,
-          raid_configs: c.raid_configs.map(cfg => ({
-            ...cfg,
-            gates: cfg.gates ? cfg.gates.map(g =>
-              cfg.content_id === contentId && g.gate === gateName
-                ? { ...g, difficulty: oldDifficulty }
-                : g
-            ) : []
-          }))
-        }))
+        characters: rg.characters.map(c => {
+          if (c.char_id !== charId) return c;
+          return {
+            ...c,
+            raid_configs: c.raid_configs.map(cfg => {
+              if (cfg.content_id !== contentId) return cfg;
+              return {
+                ...cfg,
+                gates: cfg.gates
+                  ? cfg.gates.map(g =>
+                      g.gate === gateName ? { ...g, difficulty: oldDifficulty } : g
+                    )
+                  : []
+              };
+            })
+          };
+        })
       }));
     }
   }
 
   // Change difficulty for ALL gates in a raid (master row)
   async function changeMasterDifficulty(contentId: string, charId: number, newDifficulty: string) {
-    // Find character
-    const char = raidMatrix.flatMap(rg => rg.characters).find(c => c.char_id === charId);
-    if (!char) return;
+    // Find the target character's raid config - read only, do NOT mutate
+    const targetChar = raidMatrix
+      .flatMap(rg => rg.characters)
+      .find(c => c.char_id === charId);
+    if (!targetChar) return;
 
-    const raidConfig = char.raid_configs.find(r => r.content_id === contentId);
-    if (!raidConfig || !raidConfig.gates) return;
+    const targetRaidConfig = targetChar.raid_configs.find(r => r.content_id === contentId);
+    if (!targetRaidConfig || !targetRaidConfig.gates) return;
 
-    // 1. Optimistic local update for ALL gates
-    raidConfig.gates.forEach(gate => { gate.difficulty = newDifficulty; });
+    // Produce a fully immutable update for the specific raid row only.
+    raidMatrix = raidMatrix.map(rg => {
+      if (rg.content_id !== contentId) return rg;
+      return {
+        ...rg,
+        characters: rg.characters.map(c => {
+          if (c.char_id !== charId) return c;
+          return {
+            ...c,
+            master_difficulty: newDifficulty,
+            raid_configs: c.raid_configs.map(cfg => {
+              if (cfg.content_id !== contentId) return cfg;
+              return {
+                ...cfg,
+                gates: cfg.gates
+                  ? cfg.gates.map(g => ({ ...g, difficulty: newDifficulty }))
+                  : []
+              };
+            })
+          };
+        })
+      };
+    });
 
-    // Force reactivity immediately so the UI reflects the change
-    raidMatrix = raidMatrix.map(rg => ({
-      ...rg,
-      characters: rg.characters.map(c => ({
-        ...c,
-        master_difficulty: c.char_id === charId && rg.content_id === contentId
-          ? newDifficulty
-          : c.master_difficulty,
-        raid_configs: c.raid_configs.map(cfg => ({
-          ...cfg,
-          gates: cfg.gates ? cfg.gates.map(g =>
-            cfg.content_id === contentId ? { ...g, difficulty: newDifficulty } : g
-          ) : []
-        }))
-      }))
-    }));
+    // Re-read the gates from the now-updated (immutable) raidMatrix for backend calls
+    const updatedChar = raidMatrix
+      .flatMap(rg => rg.characters)
+      .find(c => c.char_id === charId);
+    const updatedGates = updatedChar?.raid_configs
+      .find(r => r.content_id === contentId)?.gates ?? [];
 
-    // 2. Backend: fire all gate updates sequentially to avoid write conflicts
+    // Sequential saves - no Promise.all to avoid DELETE+re-insert race
     try {
-      for (const gate of raidConfig.gates) {
+      for (const gate of updatedGates) {
         await invoke('update_raid_gate_config', {
           rosterId: $activeRosterId,
           charId,
