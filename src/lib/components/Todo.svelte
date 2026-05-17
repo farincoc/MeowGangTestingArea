@@ -684,10 +684,14 @@
                     {/if}
                   </div>
                   <div class="char-stats">
-                    <span class="stat-label">iLvl</span>
-                    <span class="char-ilvl">{character.ilvl?.toFixed(0) || '0'}</span>
-                    <span class="stat-label cp-label">CP</span>
-                    <span class="char-cp">{character.combat_power?.toFixed(0) || '0'}</span>
+                    <div class="stat-pair">
+                      <span class="stat-label">iLvl</span>
+                      <span class="char-ilvl">{character.ilvl?.toFixed(0) || '0'}</span>
+                    </div>
+                    <div class="stat-pair">
+                      <span class="stat-label cp-label">CP</span>
+                      <span class="char-cp">{character.combat_power?.toFixed(0) || '0'}</span>
+                    </div>
                   </div>
                 </div>
               </th>
@@ -908,6 +912,8 @@
     padding: 1rem;
     display: flex;
     flex-direction: column;
+    flex: 1 1 0;
+    min-height: 0;
   }
 
   .roster-selector {
@@ -973,6 +979,7 @@
 
   .matrix-content {
     flex: 1;
+    min-height: 0;
     overflow: auto;
     position: relative;
   }
@@ -981,18 +988,18 @@
     width: 100%;
     border-collapse: separate;
     border-spacing: 0;
-    background: var(--surface);
+    background: var(--md-sys-color-surface);
   }
 
   .header-row {
-    background: var(--surface-container);
+    background: var(--md-sys-color-surface-container);
   }
 
   .header-row th {
     position: sticky;
     top: 0;
     z-index: 20;
-    background: var(--surface-container);
+    background: var(--md-sys-color-surface-container);
   }
 
   .header-row th.first-col {
@@ -1002,17 +1009,17 @@
   .sticky-col {
     position: sticky;
     left: 0;
-    background: var(--surface);
+    background: var(--md-sys-color-surface);
   }
 
   .first-col {
     z-index: 11;
     min-width: 200px;
-    background: var(--surface-container);
+    background: var(--md-sys-color-surface-variant);
   }
 
   .task-name-cell.sticky-col.first-col {
-    background: var(--surface);
+    background: var(--md-sys-color-surface-variant);
     z-index: 11;
   }
 
@@ -1127,9 +1134,18 @@
 
   .char-stats {
     display: flex;
-    gap: 0.25rem;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    justify-content: center;
     font-size: 0.75rem;
     opacity: 0.8;
+  }
+
+  .stat-pair {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    white-space: nowrap;
   }
 
   .stat-label {

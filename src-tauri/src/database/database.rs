@@ -140,6 +140,60 @@ impl DatabaseManager {
                     max_value INTEGER DEFAULT 100,
                     UNIQUE(char_id, content_id)
                 )"),
+            ("character_engravings",
+                "CREATE TABLE IF NOT EXISTS character_engravings (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    character_id INTEGER NOT NULL,
+                    engraving_name TEXT NOT NULL,
+                    books_read INTEGER NOT NULL DEFAULT 0,
+                    max_books INTEGER NOT NULL DEFAULT 20,
+                    stone_bonus INTEGER NOT NULL DEFAULT 0,
+                    is_manual_entry INTEGER NOT NULL DEFAULT 0,
+                    updated_at INTEGER NOT NULL,
+                    UNIQUE(character_id, engraving_name),
+                    FOREIGN KEY(character_id) REFERENCES conf_character(char_id) ON DELETE CASCADE
+                )"),
+            ("character_equipment",
+                "CREATE TABLE IF NOT EXISTS character_equipment (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    character_id INTEGER NOT NULL,
+                    slot TEXT NOT NULL,
+                    enhancement_level INTEGER,
+                    tier TEXT,
+                    quality INTEGER,
+                    item_level REAL,
+                    is_manual_entry INTEGER NOT NULL DEFAULT 0,
+                    updated_at INTEGER NOT NULL,
+                    UNIQUE(character_id, slot),
+                    FOREIGN KEY(character_id) REFERENCES conf_character(char_id) ON DELETE CASCADE
+                )"),
+            ("character_gems",
+                "CREATE TABLE IF NOT EXISTS character_gems (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    character_id INTEGER NOT NULL,
+                    slot_index INTEGER NOT NULL DEFAULT 0,
+                    gem_name TEXT NOT NULL DEFAULT '',
+                    skill_name TEXT NOT NULL,
+                    gem_type TEXT NOT NULL,
+                    gem_level INTEGER NOT NULL,
+                    is_bound INTEGER NOT NULL DEFAULT 0,
+                    is_manual_entry INTEGER NOT NULL DEFAULT 0,
+                    updated_at INTEGER NOT NULL,
+                    UNIQUE(character_id, slot_index),
+                    FOREIGN KEY(character_id) REFERENCES conf_character(char_id) ON DELETE CASCADE
+                )"),
+            ("progression_goals",
+                "CREATE TABLE IF NOT EXISTS progression_goals (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    character_id INTEGER NOT NULL,
+                    goal_type TEXT NOT NULL,
+                    target_name TEXT NOT NULL,
+                    target_value INTEGER NOT NULL,
+                    created_at INTEGER NOT NULL,
+                    completed_at INTEGER,
+                    UNIQUE(character_id, goal_type, target_name),
+                    FOREIGN KEY(character_id) REFERENCES conf_character(char_id) ON DELETE CASCADE
+                )"),
         ];
         
         for (table_name, create_sql) in &tables_to_create {
@@ -183,7 +237,11 @@ impl DatabaseManager {
             "CREATE INDEX IF NOT EXISTS idx_gold_logs_notes ON gold_logs(notes)",
             "CREATE INDEX IF NOT EXISTS idx_gold_logs_source ON gold_logs(source)",
             "CREATE INDEX IF NOT EXISTS idx_gold_logs_timestamp ON gold_logs(timestamp)",
-            "CREATE INDEX IF NOT EXISTS idx_gold_logs_timestamp_char ON gold_logs(timestamp, char_id)",
+            "CREATE INDEX IF NOT EXISTS idx_character_engravings_char ON character_engravings(character_id)",
+            "CREATE INDEX IF NOT EXISTS idx_character_equipment_char ON character_equipment(character_id)",
+            "CREATE INDEX IF NOT EXISTS idx_character_gems_char ON character_gems(character_id)",
+            "CREATE INDEX IF NOT EXISTS idx_character_gems_slot ON character_gems(character_id, slot_index)",
+            "CREATE INDEX IF NOT EXISTS idx_progression_goals_char ON progression_goals(character_id)",
         ];
 
         crate::log_debug!("Creating database indexes");

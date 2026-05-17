@@ -138,6 +138,92 @@ impl DataManager {
             }
         }
 
+        if current_version < 4 {
+            tx.execute_batch(
+                r#"
+                CREATE TABLE IF NOT EXISTS character_engravings (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    character_id INTEGER NOT NULL,
+                    engraving_name TEXT NOT NULL,
+                    books_read INTEGER NOT NULL DEFAULT 0,
+                    max_books INTEGER NOT NULL DEFAULT 20,
+                    stone_bonus INTEGER NOT NULL DEFAULT 0,
+                    is_manual_entry INTEGER NOT NULL DEFAULT 0,
+                    updated_at INTEGER NOT NULL,
+                    UNIQUE(character_id, engraving_name),
+                    FOREIGN KEY(character_id) REFERENCES conf_character(char_id) ON DELETE CASCADE
+                );
+                CREATE TABLE IF NOT EXISTS character_equipment (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    character_id INTEGER NOT NULL,
+                    slot TEXT NOT NULL,
+                    enhancement_level INTEGER,
+                    tier TEXT,
+                    quality INTEGER,
+                    item_level REAL,
+                    is_manual_entry INTEGER NOT NULL DEFAULT 0,
+                    updated_at INTEGER NOT NULL,
+                    UNIQUE(character_id, slot),
+                    FOREIGN KEY(character_id) REFERENCES conf_character(char_id) ON DELETE CASCADE
+                );
+                CREATE TABLE IF NOT EXISTS character_gems (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    character_id INTEGER NOT NULL,
+                    skill_name TEXT NOT NULL,
+                    gem_type TEXT NOT NULL,
+                    gem_level INTEGER NOT NULL,
+                    is_manual_entry INTEGER NOT NULL DEFAULT 0,
+                    updated_at INTEGER NOT NULL,
+                    UNIQUE(character_id, skill_name, gem_type),
+                    FOREIGN KEY(character_id) REFERENCES conf_character(char_id) ON DELETE CASCADE
+                );
+                CREATE TABLE IF NOT EXISTS progression_goals (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    character_id INTEGER NOT NULL,
+                    goal_type TEXT NOT NULL,
+                    target_name TEXT NOT NULL,
+                    target_value INTEGER NOT NULL,
+                    created_at INTEGER NOT NULL,
+                    completed_at INTEGER,
+                    UNIQUE(character_id, goal_type, target_name),
+                    FOREIGN KEY(character_id) REFERENCES conf_character(char_id) ON DELETE CASCADE
+                );
+                CREATE INDEX IF NOT EXISTS idx_character_engravings_char ON character_engravings(character_id);
+                CREATE INDEX IF NOT EXISTS idx_character_equipment_char ON character_equipment(character_id);
+                CREATE INDEX IF NOT EXISTS idx_character_gems_char ON character_gems(character_id);
+                CREATE INDEX IF NOT EXISTS idx_progression_goals_char ON progression_goals(character_id);
+                "#,
+            )?;
+        }
+
+        if current_version < 5 {
+            // Rebuild character_gems with new schema:
+            // - unique key changed from (character_id, skill_name, gem_type) to (character_id, slot_index)
+            // - added columns: slot_index, gem_name, is_bound
+            // SQLite cannot drop constraints, so we recreate the table.
+            tx.execute_batch(
+                r#"
+                DROP TABLE IF EXISTS character_gems;
+                CREATE TABLE character_gems (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    character_id INTEGER NOT NULL,
+                    slot_index INTEGER NOT NULL DEFAULT 0,
+                    gem_name TEXT NOT NULL DEFAULT '',
+                    skill_name TEXT NOT NULL,
+                    gem_type TEXT NOT NULL,
+                    gem_level INTEGER NOT NULL,
+                    is_bound INTEGER NOT NULL DEFAULT 0,
+                    is_manual_entry INTEGER NOT NULL DEFAULT 0,
+                    updated_at INTEGER NOT NULL,
+                    UNIQUE(character_id, slot_index),
+                    FOREIGN KEY(character_id) REFERENCES conf_character(char_id) ON DELETE CASCADE
+                );
+                CREATE INDEX IF NOT EXISTS idx_character_gems_char ON character_gems(character_id);
+                CREATE INDEX IF NOT EXISTS idx_character_gems_slot ON character_gems(character_id, slot_index);
+                "#,
+            )?;
+        }
+
         tx.commit()?;
         Self::set_schema_version(pool, target_version)?;
         println!("Database migrated from version {} to {}", current_version, target_version);
