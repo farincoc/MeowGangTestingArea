@@ -327,18 +327,19 @@
           if (uniqueRaids.has(raidKey)) continue;
           uniqueRaids.add(raidKey);
 
-          const raid = raidLookup[raidKey];
-          if (!raid) continue;
+          const plannedRaid = raidLookup[raidKey];
+          if (!plannedRaid) continue;
 
-          const raidGold = raid.gates.reduce((sum: number, gate) => {
+          // Gold the user planned to earn from this raid
+          const plannedGold = plannedRaid.gates.reduce((sum: number, gate) => {
             const gateGold = (gate.tradableGold || 0) + (gate.boundGold || 0);
             const boxPrice = config.buy_box === 1 ? (gate.boxPrice || 0) : 0;
             return sum + gateGold - boxPrice;
           }, 0);
 
-          totalGold += raidGold;
+          totalGold += plannedGold;
 
-          // Detect mismatch: cleared in a different difficulty than planned
+          // Check for a difficulty mismatch
           const plannedDiff = (config.difficulty ?? '').trim().toLowerCase();
           const clearedEntry = completionData.find(
             (c: any) => c.content_id === config.content_id && c.is_completed === 1 && c.details
@@ -346,7 +347,28 @@
           if (clearedEntry) {
             const actualDiff = (clearedEntry.details as string).trim().toLowerCase();
             if (actualDiff !== plannedDiff) {
-              lostGold += raidGold;
+              // Find what the user actually earned in the difficulty they ran
+              const actualRaidKey = `${config.content_id}-${clearedEntry.details?.trim()}`;
+              const actualRaid = raidLookup[actualRaidKey]
+                // Fallback: try case-insensitive match
+                ?? Object.values(raidLookup).find(r =>
+                    r.id === config.content_id &&
+                    r.difficulty.toLowerCase() === actualDiff
+                  );
+
+              const actualGold = actualRaid
+                ? actualRaid.gates.reduce((sum: number, gate) => {
+                    const gateGold = (gate.tradableGold || 0) + (gate.boundGold || 0);
+                    const boxPrice = config.buy_box === 1 ? (gate.boxPrice || 0) : 0;
+                    return sum + gateGold - boxPrice;
+                  }, 0)
+                : 0;
+
+              // lostGold = difference between what was planned and what was actually earned
+              // Positive = user earned less than planned (e.g. ran Normal instead of Hard)
+              // Negative = user earned more than planned (e.g. ran Hard instead of Normal) - clamp to 0
+              const diff = plannedGold - actualGold;
+              if (diff > 0) lostGold += diff;
             }
           }
         }
