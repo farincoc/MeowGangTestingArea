@@ -681,6 +681,22 @@
 
   .pct-text { color: #ffd700; }
   .remaining-text { color: #666; }
+  .remaining-text.mismatch-loss { color: #f87171; }
+
+  .progress-fill-lost {
+    position: absolute;
+    top: 0;
+    height: 100%;
+    background: repeating-linear-gradient(
+      45deg,
+      rgba(120, 120, 120, 0.45),
+      rgba(120, 120, 120, 0.45) 4px,
+      rgba(60, 60, 60, 0.2) 4px,
+      rgba(60, 60, 60, 0.2) 8px
+    );
+    border-radius: 0 3px 3px 0;
+    transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
+  }
 
   .gold-details-minimal {
     display: flex;
